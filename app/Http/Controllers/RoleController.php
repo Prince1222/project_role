@@ -11,7 +11,10 @@ class RoleController extends Controller
 {
     //This method will show roles page
     public function index(){
-        return view('roles.list');
+        $roles = ROle::orderBy('name','ASC')->paginate(25);
+        return view('roles.list',[
+            'roles'=>$roles
+        ]);
     }
 
     //This method will create roles page
@@ -44,4 +47,63 @@ class RoleController extends Controller
 
         }
     }
+
+    public function edit($id){
+        $role =Role::findOrFail($id);
+        $hasPermissions = $role->permissions->pluck('name');
+        $permissions = Permission::orderBy('name','ASC')->get();
+       
+    
+        return view('roles.edit',[
+            'permissions' => $permissions,
+            'hasPermissions'=> $hasPermissions,
+            'role'=> $role
+
+        ]);
+         
+        }
+        public function update($id, Request $request){
+        $role = Role::findOrFail($id);
+       
+        $validator = Validator::make($request->all(),[
+            'name'=> 'required|unique:roles,name,'.$id.',id'
+        ]);
+        if($validator->passes()){
+         
+         $role->name = $request->name;
+          $role->save();
+
+            if(!empty($request->permission)){
+               $role->syncPermissions($request->permission);
+            }else{
+                $role->syncPermissions([]);
+
+            }
+
+            return redirect()->route('roles.index')->with('success','Role updated successfully.');
+
+        }
+        else{
+            return redirect()->route('roles.edit')->withInput()->withErrors($validator);
+
+        }
+        }
+        public function destroy(Request $request){
+            $id = $request->id;
+            $role = Role::find($id);
+
+            if($role == null){
+                session()->flash('error','Role not  found');
+                return response()->json([
+                    'status'=> false
+                ]);
+
+            }
+            $role->delete();
+            
+            session()->flash('success','Role deleted sucessfully');
+            return response()->json([
+                'status'=> true
+            ]);
+        } 
 }
